@@ -1,15 +1,20 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
+import { getFileExtension } from './utils/index';
+import * as uuid from 'uuid';
 
 @Injectable({
   providedIn: 'root',
 })
 export class UploadService {
   private uploadParts: string[] = [];
-  private barerToken = 'Bearer eyJraWQiOiJPR0IzVFVxc1lnU1RQa3NCWm1EVHJhckVobk52VUpaRHFtYk83YWltVUVVPSIsImFsZyI6IlJTMjU2In0.eyJjdXN0b206c291cmNlIjoiY3VzdG9tIiwic3ViIjoiMTRjODI0MDgtODBlMS03MDgzLTQ1M2UtODYwOWJmMjI1MTA1IiwiY29nbml0bzpncm91cHMiOlsiYWRtaW4iXSwiZW1haWxfdmVyaWZpZWQiOnRydWUsImN1c3RvbTp1cGRhdGVkQnkiOiJhdGlxdWVAaG9seXJlYWRzLmNvbSIsImN1c3RvbTpkZXZpY2VUeXBlIjoiV0VCIiwiaXNzIjoiaHR0cHM6XC9cL2NvZ25pdG8taWRwLnVzLWVhc3QtMS5hbWF6b25hd3MuY29tXC91cy1lYXN0LTFfcGxkWHRYRzdBIiwiY29nbml0bzp1c2VybmFtZSI6IjE0YzgyNDA4LTgwZTEtNzA4My00NTNlLTg2MDliZjIyNTEwNSIsImNvZ25pdG86cm9sZXMiOlsiYXJuOmF3czppYW06OjY5NDIxNDAwNTkxODpyb2xlXC9hYmJha2lkLWFkbWluIl0sImF1ZCI6IjFrZmpucWNta2M2N2tnNWN2bXZzbnA4bGI4IiwiY3VzdG9tOmNyZWF0ZWRCeSI6ImF0aXF1ZUBob2x5cmVhZHMuY29tIiwiZXZlbnRfaWQiOiI1YmNhYjQ3NC1jMzg1LTQ4ZGYtYjgwYi03NTlhZWM0MWY5ZGYiLCJjdXN0b206bmFtZSI6IkF0aXF1ZSBBaG1lZCIsImN1c3RvbTpwcm9maWxlaWQiOiIxIiwidG9rZW5fdXNlIjoiaWQiLCJhdXRoX3RpbWUiOjE2OTU2NTc4MzcsImN1c3RvbTpwcm9maWxldXJsIjoiaHR0cHM6XC9cL2Rldi1zdGF0aWMuYWJiYWtpZC5jb21cL3Byb2ZpbGVcL2RlZmF1bHRcL3Byb2ZpbGUucG5nIiwiZXhwIjoxNjk1NzQ0MjM3LCJjdXN0b206cm9sZSI6ImFkbWluIiwiaWF0IjoxNjk1NjU3ODM3LCJlbWFpbCI6ImF0aXF1ZUBob2x5cmVhZHMuY29tIn0.U_5RCNjTOYt69xP5PFZftNgxtjOWN5fb3HSJp0yup4CPyI6hlyutXd9H2zHgkSaBiYlGG2fqJXbOOF_AAwKIp0He-A1wGNn0r8Av0D-G90BLCcbiKrTqEEtXLlQJbTr8L3PQW_2p7Xb_uS9IEp7dtO4tYgSF7jK75p4qRwlmDjOOR0SOlFnpAqjAj7pPCzXYpEOJAIC5QyMiukTwaeHQn3klQ9i_qzpq6axeEKOS_TBOSMKhTNPOxahxZYS4-mK4tZuPRLVmPz5yWT6H8lI9ZZJNxnri4uQ0jMPWMzBh8C-57ynjw3P__xxuUTKfJeNIMRinE_eLyoPlMCB-s2SHgA'; // Replace with your actual bearer token
-
-  constructor(private http: HttpClient) {}
+  private barerToken = 'Bearer eyJraWQiOiJPR0IzVFVxc1lnU1RQa3NCWm1EVHJhckVobk52VUpaRHFtYk83YWltVUVVPSIsImFsZyI6IlJTMjU2In0.eyJjdXN0b206c291cmNlIjoiY3VzdG9tIiwic3ViIjoiZTRmODE0YTgtMjA0MS03MGFmLTk3NTktNjljYjA1ZGJlMDU3IiwiY29nbml0bzpncm91cHMiOlsiYWRtaW4iXSwiZW1haWxfdmVyaWZpZWQiOnRydWUsImN1c3RvbTp1cGRhdGVkQnkiOiJkZXZlbG9wZXIucGF0b2xpeWFAZ21haWwuY29tIiwiY3VzdG9tOmRldmljZVR5cGUiOiJXRUIiLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtZWFzdC0xLmFtYXpvbmF3cy5jb21cL3VzLWVhc3QtMV9wbGRYdFhHN0EiLCJjb2duaXRvOnVzZXJuYW1lIjoiZTRmODE0YTgtMjA0MS03MGFmLTk3NTktNjljYjA1ZGJlMDU3IiwiY29nbml0bzpyb2xlcyI6WyJhcm46YXdzOmlhbTo6Njk0MjE0MDA1OTE4OnJvbGVcL2FiYmFraWQtYWRtaW4iXSwiYXVkIjoiMWtmam5xY21rYzY3a2c1Y3ZtdnNucDhsYjgiLCJjdXN0b206Y3JlYXRlZEJ5IjoiZGV2ZWxvcGVyLnBhdG9saXlhQGdtYWlsLmNvbSIsImV2ZW50X2lkIjoiM2M0YTI3OTYtZGVjYS00ODhlLTkzOGMtYWUyMGJjNjFkODcyIiwiY3VzdG9tOm5hbWUiOiJWaWpheSBQYXRvbGl5YSIsImN1c3RvbTpwcm9maWxlaWQiOiIxIiwidG9rZW5fdXNlIjoiaWQiLCJhdXRoX3RpbWUiOjE2OTU3MDczMDUsImN1c3RvbTpwcm9maWxldXJsIjoiaHR0cHM6XC9cL2Rldi1zdGF0aWMuYWJiYWtpZC5jb21cL3Byb2ZpbGVcL2RlZmF1bHRcL3Byb2ZpbGUucG5nIiwiZXhwIjoxNjk1NzkzNzA1LCJjdXN0b206cm9sZSI6ImFkbWluIiwiaWF0IjoxNjk1NzA3MzA1LCJlbWFpbCI6ImRldmVsb3Blci5wYXRvbGl5YUBnbWFpbC5jb20ifQ.elV9GKm24zdeciBYgmTjuwS3yvjswgJz5f9bCNWGny4iNI5mQu4gaQ6SfCOQGOsJBNKeDUuvJf4oJHuJVQRdERuFHpVhZqIUdpKoVX86hXogI8LXULIhdSgUJhFjcOzW9ydc1NQUsLk_lDluF4G7xpI96CTaK6M0UGgmkpkYSMcNdDiJqG3w4PndFIzefdr3c2bwnaYQSwR9-ixE50ouFva8P-MJXikZuD4Np0smO8WiUFcz4PE97Kbq0_8HnC-fUS14SG4S9f6lzPFUQK9w_EuQu7KnN7LEUFel14pQs_k44_zKzXZbphcm0zFHQLInfMFDJvpDZCK1de-EdW6n9w'; // Replace with your actual bearer token
+  private uuid: any;
+  private updatedFileName: any;
+  constructor(private http: HttpClient) {
+    this.uuid = uuid.v4();
+  }
 
   async uploadFile(
     fileToUpload: File,
@@ -31,7 +36,7 @@ export class UploadService {
       formData.append('file', chunk);
 
       var params = {
-        key: fileToUpload.name,
+        key: this.updatedFileName,
         totalSize: fileToUpload.size.toString(),
         partNo: (i + 1).toString(),
         uploadId: uploadId
@@ -47,7 +52,7 @@ export class UploadService {
       this.uploadParts.push(getETag.data.ETag); // Store the ETag value for this chunk
     }
 
-    await this.completeUpload(uploadId, fileToUpload.name, CHUNKS_COUNT);
+    await this.completeUpload(uploadId, this.updatedFileName, CHUNKS_COUNT);
   }
 
   private async startUpload(fileToUpload: File): Promise<string> {
@@ -60,8 +65,29 @@ export class UploadService {
     });
 
     try {
+
+      // Modify the file name - Starts here
+      // Extract the first word from the file name
+      var firstWord = fileToUpload.name.split(' ')[0];
+
+      // Its a first word
+      if(firstWord.includes('.')) {
+        firstWord = firstWord.split('.')[0];
+      }
+          
+      // Generate an 8-character UUID
+      const uniqueId =  this.uuid.slice(0, 8);
+
+      const extension = getFileExtension(fileToUpload.name);
+
+      // Construct the new file name
+      this.updatedFileName = `${firstWord}_${uniqueId}${extension}`;
+
+
+
+      // Modify the file name - Ends here
       const formData = {
-        fileName: fileToUpload.name,
+        fileName: this.updatedFileName,
         mimetype: fileToUpload.type
       }
       
